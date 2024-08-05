@@ -1,25 +1,29 @@
-import { createContext, ReactNode, useContext, useState, useMemo } from 'react';
+import { createContext, ReactNode, useContext, useState, useMemo, useEffect } from 'react';
+import useSWR from 'swr';
+
+import { PairsResponse } from 'constants/constants';
 
 interface ITokenContext {
-  lusdAmount: BigInt;
-  setLusdAmount: (amount: BigInt) => void;
-  lusdBalance: BigInt;
-  setLusdBalance: (balance: BigInt) => void;
-  stayBullAmount: BigInt;
-  setStayBullAmount: (amount: BigInt) => void;
-  plsPrice: string;
-  setPlsPrice: (price: string) => void;
-  lusdPrice: string;
-  setLusdPrice: (price: string) => void;
-  stayBullPrice: string;
-  setStayBullPrice: (price: string) => void;
-  lusdPLSPrice: string;
-  setLusdPLSPrice: (price: string) => void;
-  lusdPriceInUSD: number;
-  stayBullPriceInUSD: number;
-  plsPriceInUSD: number;
-  lusdAmountInteger: number;
-  plsAmountInteger: number;
+  titanXAmount: BigInt;
+  setTitanXAmount: (amount: BigInt) => void;
+  titanXBalance: BigInt;
+  setTitanXBalance: (balance: BigInt) => void;
+  pulsarAmount: BigInt;
+  setPulsarAmount: (amount: BigInt) => void;
+  wEthPrice: string;
+  setWEthPrice: (price: string) => void;
+  titanXPrice: string;
+  setTitanXPrice: (price: string) => void;
+  pulsarPrice: string;
+  setPulsarPrice: (price: string) => void;
+  titanXWEthPrice: string;
+  setTitanXWEthPrice: (price: string) => void;
+  titanXPriceInUSD: number;
+  pulsarPriceInUSD: number;
+  wEthPriceInUSD: number;
+  titanXAmountInteger: number;
+  wEthAmountInteger: number;
+  priceDenominator: string;
 }
 
 export const TokenContext = createContext<ITokenContext>({} as ITokenContext);
@@ -33,71 +37,92 @@ interface ITokenContextProvider {
 export const TokenContextProvider = (props: ITokenContextProvider) => {
   const { children } = props;
 
-  const [lusdAmount, setLusdAmount] = useState<BigInt>(0n);
-  const [lusdBalance, setLusdBalance] = useState<BigInt>(0n);
-  const [stayBullAmount, setStayBullAmount] = useState<BigInt>(0n);
-  const [plsPrice, setPlsPrice] = useState<string>('0');
-  const [lusdPrice, setLusdPrice] = useState<string>('0');
-  const [stayBullPrice, setStayBullPrice] = useState<string>('0');
-  const [lusdPLSPrice, setLusdPLSPrice] = useState<string>('0');
+  const [titanXAmount, setTitanXAmount] = useState<BigInt>(0n);
+  const [titanXBalance, setTitanXBalance] = useState<BigInt>(0n);
+  const [pulsarAmount, setPulsarAmount] = useState<BigInt>(0n);
+  const [titanXPrice, setTitanXPrice] = useState<string>('0');
+  const [pulsarPrice, setPulsarPrice] = useState<string>('0');
+  const [wEthPrice, setWEthPrice] = useState<string>('0');
+  const [titanXWEthPrice, setTitanXWEthPrice] = useState<string>('0');
+  const [priceDenominator, setPriceDenominator] = useState<string>('0');
 
-  const lusdAmountInteger = useMemo(
-    () => parseFloat(lusdAmount.toString()) / 10 ** DEFAULT_DECIMALS,
-    [lusdAmount]
+  const api =
+    'https://api.dexscreener.com/latest/dex/pairs/ethereum/0xc45a81bc23a64ea556ab4cdf08a86b61cdceea8b';
+
+  const fetcher = <T,>(...args: Parameters<typeof fetch>) =>
+    fetch(...args).then((res) => res.json() as Promise<T>);
+  const { data } = useSWR(api, fetcher);
+
+  useEffect(() => {
+    const tokenData: PairsResponse | undefined = data as PairsResponse;
+    if (tokenData && typeof tokenData === 'object' && 'pairs' in tokenData) {
+      const pairData = tokenData.pairs?.[0] || {};
+      const priceNative = pairData.priceNative;
+      const priceDenom = (1 / priceNative).toFixed(0);
+
+      setPriceDenominator(priceDenom);
+    }
+  }, [data, setWEthPrice]);
+
+  const titanXAmountInteger = useMemo(
+    () => parseFloat(titanXAmount.toString()) / 10 ** DEFAULT_DECIMALS,
+    [titanXAmount]
   );
-  const plsAmountInteger = useMemo(
-    () => (lusdAmountInteger * parseFloat(lusdPLSPrice) * 101) / 100,
-    [lusdAmountInteger, lusdPLSPrice]
+  const wEthAmountInteger = useMemo(
+    () => ((titanXAmountInteger / parseInt(priceDenominator) / 4) * 101) / 100,
+    [priceDenominator, titanXAmountInteger]
   );
 
-  const lusdPriceInUSD = useMemo(
-    () => parseFloat(lusdPrice) * (parseFloat(lusdAmount.toString()) / 10 ** DEFAULT_DECIMALS),
-    [lusdPrice, lusdAmount]
+  const titanXPriceInUSD = useMemo(
+    () => parseFloat(titanXPrice) * (parseFloat(titanXAmount.toString()) / 10 ** DEFAULT_DECIMALS),
+    [titanXPrice, titanXAmount]
   );
-  const stayBullPriceInUSD = useMemo(
-    () => parseFloat(stayBullPrice) * (parseFloat(lusdAmount.toString()) / 10 ** DEFAULT_DECIMALS),
-    [stayBullPrice, lusdAmount]
+  const pulsarPriceInUSD = useMemo(
+    () => parseFloat(pulsarPrice) * (parseFloat(titanXAmount.toString()) / 10 ** DEFAULT_DECIMALS),
+    [pulsarPrice, titanXAmount]
   );
-  const plsPriceInUSD = useMemo(
-    () => parseFloat(plsPrice) * plsAmountInteger,
-    [plsPrice, plsAmountInteger]
+  const wEthPriceInUSD = useMemo(
+    () => parseFloat(wEthPrice) * wEthAmountInteger,
+    [wEthPrice, wEthAmountInteger]
   );
 
   const value: ITokenContext = useMemo(
     () => ({
-      lusdAmount,
-      setLusdAmount,
-      lusdBalance,
-      setLusdBalance,
-      stayBullAmount,
-      setStayBullAmount,
-      plsPrice,
-      setPlsPrice,
-      lusdPrice,
-      setLusdPrice,
-      stayBullPrice,
-      setStayBullPrice,
-      lusdPLSPrice,
-      setLusdPLSPrice,
-      lusdPriceInUSD,
-      stayBullPriceInUSD,
-      plsPriceInUSD,
-      lusdAmountInteger,
-      plsAmountInteger
+      titanXAmount,
+      setTitanXAmount,
+      titanXBalance,
+      setTitanXBalance,
+      pulsarAmount,
+      setPulsarAmount,
+      wEthPrice,
+      setWEthPrice,
+      titanXPrice,
+      setTitanXPrice,
+      pulsarPrice,
+      setPulsarPrice,
+      titanXWEthPrice,
+      setTitanXWEthPrice,
+      titanXPriceInUSD,
+      pulsarPriceInUSD,
+      wEthPriceInUSD,
+      titanXAmountInteger,
+      wEthAmountInteger,
+      priceDenominator
     }),
     [
-      lusdAmount,
-      lusdAmountInteger,
-      lusdBalance,
-      lusdPLSPrice,
-      lusdPrice,
-      lusdPriceInUSD,
-      plsAmountInteger,
-      plsPrice,
-      plsPriceInUSD,
-      stayBullAmount,
-      stayBullPrice,
-      stayBullPriceInUSD
+      titanXAmount,
+      titanXBalance,
+      pulsarAmount,
+      wEthPrice,
+      titanXPrice,
+      pulsarPrice,
+      titanXWEthPrice,
+      titanXPriceInUSD,
+      pulsarPriceInUSD,
+      wEthPriceInUSD,
+      titanXAmountInteger,
+      wEthAmountInteger,
+      priceDenominator
     ]
   );
 

@@ -16,7 +16,7 @@ interface IPriceDisplay {
 const PriceDisplay = (props: IPriceDisplay) => {
   const { title, currency = '$', api } = props;
 
-  const { setPlsPrice, plsPriceInUSD } = useTokenContext();
+  const { setWEthPrice, wEthPriceInUSD } = useTokenContext();
 
   const fetcher = <T,>(...args: Parameters<typeof fetch>) =>
     fetch(...args).then((res) => res.json() as Promise<T>);
@@ -24,13 +24,12 @@ const PriceDisplay = (props: IPriceDisplay) => {
 
   useEffect(() => {
     const tokenData: PairsResponse | undefined = data as PairsResponse;
-
     if (tokenData && typeof tokenData === 'object' && 'pairs' in tokenData) {
       const pairData = tokenData.pairs?.[0] || {};
 
-      setPlsPrice(pairData?.priceUsd || '0');
+      setWEthPrice(pairData?.priceUsd || '0');
     }
-  }, [data, setPlsPrice]);
+  }, [data, setWEthPrice]);
 
   return (
     <div className="flex w-full items-center justify-between text-sm font-bold text-gray-300">
@@ -38,7 +37,7 @@ const PriceDisplay = (props: IPriceDisplay) => {
       {isLoading || isValidating ? (
         <Setting2 size={16} variant="Outline" className="animate-spin" />
       ) : (
-        `${currency}${Number(plsPriceInUSD.toFixed(2)).toLocaleString('us')}`
+        `${currency}${Number(wEthPriceInUSD.toFixed(3)).toLocaleString('us')}`
       )}
     </div>
   );

@@ -27,28 +27,28 @@ const TokenInput = (props: ITokenInput) => {
   const { tokenType, classNames, tokenImage, abi, api, label, contractAddress, tokenImageUrl } =
     props;
 
-  const [customGiffAmount, setCustomGiffAmount] = useState<string>('');
+  const [defaultPulsarAmount, setDefaultPulsarAmount] = useState<string>('');
 
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { address } = useAccount();
   const {
-    setLusdPrice,
-    lusdBalance,
-    setLusdBalance,
-    setStayBullPrice,
-    setPlsPrice,
-    setLusdAmount,
-    setStayBullAmount,
-    setLusdPLSPrice,
-    lusdPriceInUSD,
-    stayBullPriceInUSD,
-    lusdAmountInteger
+    setTitanXPrice,
+    titanXBalance,
+    setTitanXBalance,
+    setPulsarPrice,
+    setWEthPrice,
+    setTitanXAmount,
+    setPulsarAmount,
+    setTitanXWEthPrice,
+    titanXPriceInUSD,
+    pulsarPriceInUSD,
+    titanXAmountInteger
   } = useTokenContext();
 
   useEffect(() => {
-    setCustomGiffAmount(Number(lusdAmountInteger.toFixed(5)).toString());
-  }, [lusdAmountInteger]);
+    setDefaultPulsarAmount(Number(titanXAmountInteger.toFixed(5)).toString());
+  }, [titanXAmountInteger]);
 
   const {
     data: balance,
@@ -70,10 +70,10 @@ const TokenInput = (props: ITokenInput) => {
   }, [refetch]);
 
   useEffect(() => {
-    if (tokenType === TokenTypes.LUSD) {
-      setLusdBalance(balance as BigInt);
+    if (tokenType === TokenTypes.TITANX) {
+      setTitanXBalance(balance as BigInt);
     }
-  }, [balance, setLusdBalance, tokenType]);
+  }, [balance, setTitanXBalance, tokenType]);
 
   const fetcher = <T,>(...args: Parameters<typeof fetch>) =>
     fetch(...args).then((res) => res.json() as Promise<T>);
@@ -87,27 +87,29 @@ const TokenInput = (props: ITokenInput) => {
     if (tokenData && typeof tokenData === 'object' && 'pairs' in tokenData) {
       const pairData = tokenData.pairs?.[0] || {};
 
-      tokenType === TokenTypes.LUSD && setLusdPLSPrice(pairData?.priceNative || '0');
-      (tokenType === TokenTypes.LUSD ? setLusdPrice : setStayBullPrice)(pairData?.priceUsd || '0');
+      tokenType === TokenTypes.TITANX && setTitanXWEthPrice(pairData?.priceNative || '0');
+      (tokenType === TokenTypes.TITANX ? setTitanXPrice : setPulsarPrice)(
+        pairData?.priceUsd || '0'
+      );
     }
-  }, [data, setLusdPrice, setStayBullPrice, setPlsPrice, setLusdPLSPrice, tokenType]);
+  }, [data, setTitanXPrice, setPulsarPrice, setWEthPrice, setTitanXWEthPrice, tokenType]);
 
   const tokenPrice = useMemo(() => {
-    return tokenType === TokenTypes.LUSD ? lusdPriceInUSD : stayBullPriceInUSD;
-  }, [lusdPriceInUSD, stayBullPriceInUSD, tokenType]);
+    return tokenType === TokenTypes.TITANX ? titanXPriceInUSD : pulsarPriceInUSD;
+  }, [titanXPriceInUSD, pulsarPriceInUSD, tokenType]);
 
   const balanceInteger = useMemo(() => {
-    const tokenBalance = tokenType === TokenTypes.LUSD ? lusdBalance : balance;
+    const tokenBalance = tokenType === TokenTypes.TITANX ? titanXBalance : balance;
     return parseFloat(tokenBalance?.toString() || '0n') / 10 ** DEFAULT_DECIMALS;
-  }, [balance, lusdBalance, tokenType]);
+  }, [balance, titanXBalance, tokenType]);
 
   const handleBlur: FocusEventHandler = useCallback(
     (e) => {
-      if (!customGiffAmount) {
-        setCustomGiffAmount('0');
+      if (!defaultPulsarAmount) {
+        setDefaultPulsarAmount('0');
       }
     },
-    [customGiffAmount]
+    [defaultPulsarAmount]
   );
 
   const handleInputChange = useCallback(
@@ -115,20 +117,20 @@ const TokenInput = (props: ITokenInput) => {
       const value = parseFloat(event.target.value);
 
       if (isNaN(value) || value === 0) {
-        setCustomGiffAmount(isNaN(value) ? '' : '0');
-        (tokenType === TokenTypes.LUSD ? setLusdAmount : setStayBullAmount)(0n);
+        setDefaultPulsarAmount(isNaN(value) ? '' : '0');
+        (tokenType === TokenTypes.TITANX ? setTitanXAmount : setPulsarAmount)(0n);
       } else {
-        (tokenType === TokenTypes.LUSD ? setLusdAmount : setStayBullAmount)(
+        (tokenType === TokenTypes.TITANX ? setTitanXAmount : setPulsarAmount)(
           BigInt(value * 10 ** 18)
         );
       }
     },
-    [setLusdAmount, setStayBullAmount, tokenType]
+    [setTitanXAmount, setPulsarAmount, tokenType]
   );
 
   const handleClickMax = useCallback(() => {
-    setLusdAmount(lusdBalance);
-  }, [lusdBalance, setLusdAmount]);
+    setTitanXAmount(titanXBalance);
+  }, [titanXBalance, setTitanXAmount]);
 
   const addTokenToMetamask = useCallback(
     async (
@@ -173,8 +175,8 @@ const TokenInput = (props: ITokenInput) => {
         <label htmlFor={label} className="flex w-full flex-col gap-y-1 text-gray-300">
           <span
             className={clsx('font-bold', {
-              'text-theme': tokenType === TokenTypes.LUSD,
-              'text-secondary': tokenType === TokenTypes.STAY_BULL
+              'text-theme': tokenType === TokenTypes.TITANX,
+              'text-secondary': tokenType === TokenTypes.PULSAR
             })}
           >
             {label}
@@ -184,11 +186,15 @@ const TokenInput = (props: ITokenInput) => {
             type="number"
             ref={inputRef}
             className={clsx('w-full bg-transparent text-4xl font-bold outline-none', {
-              'cursor-default': tokenType !== TokenTypes.LUSD
+              'cursor-default': tokenType !== TokenTypes.TITANX
             })}
-            readOnly={tokenType !== TokenTypes.LUSD}
-            defaultValue={customGiffAmount}
-            value={tokenType === TokenTypes.LUSD ? customGiffAmount : customGiffAmount || '0'}
+            readOnly={tokenType !== TokenTypes.TITANX}
+            defaultValue={defaultPulsarAmount}
+            value={
+              tokenType === TokenTypes.TITANX
+                ? defaultPulsarAmount
+                : Number(defaultPulsarAmount) / 4 || '0'
+            }
             onBlur={handleBlur}
             min={0}
             onChange={handleInputChange}
@@ -199,7 +205,7 @@ const TokenInput = (props: ITokenInput) => {
             src={tokenImage}
             title="Add token to the Metamask"
             alt="token logo"
-            className="h-8 w-8 cursor-pointer"
+            className="h-8 w-8 cursor-pointer rounded-full"
             onClick={() =>
               addTokenToMetamask(contractAddress, tokenType, DEFAULT_DECIMALS, tokenImageUrl)
             }
@@ -220,7 +226,7 @@ const TokenInput = (props: ITokenInput) => {
           ) : (
             <span className="text-sm font-semibold">Balance {balanceInteger.toFixed(1)}</span>
           )}
-          {tokenType === TokenTypes.LUSD && (
+          {tokenType === TokenTypes.TITANX && (
             <button
               type="button"
               className="rounded bg-theme px-2 py-0.5 text-xs font-semibold text-gray-800"

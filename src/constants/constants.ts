@@ -1,7 +1,7 @@
 export enum TokenTypes {
-  LUSD = 'LUSD',
-  STAY_BULL = 'sBULL',
-  PLS = 'PLS'
+  TITANX = 'TITANX',
+  PULSAR = 'PULSAR',
+  ETH = 'ETH'
 }
 
 export type PairsResponse = {

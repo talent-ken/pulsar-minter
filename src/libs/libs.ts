@@ -11,3 +11,7 @@ export const showNotification = (
     : toast(context, {
         style: { fontFamily: "'Roboto', 'sans-serif'" }
       });
+
+export const createNonce = (): number => {
+  return Math.floor(Math.random() * Math.pow(2, 32));
+};

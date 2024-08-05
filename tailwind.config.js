@@ -5,8 +5,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        theme: '#ee1098',
-        secondary: '#0097fc',
+        theme: '#56fa01',
+        secondary: '#3180ff',
         gray: {
           50: '#FBFBFB',
           100: '#F5F5F5',
@@ -31,7 +31,7 @@ module.exports = {
         sans: ['sora', 'sans-serif']
       },
       backgroundImage: {
-        staybull: "url('/src/assets/images/bg_staybull.webp')"
+        staybull: "url('/src/assets/images/bg_pulsar.webp')"
       },
       maxWidth: {
         max: '94.5rem' // 1512px MAX WIDTH

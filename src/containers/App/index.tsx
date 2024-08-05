@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet';
 import { Bounce, ToastContainer } from 'react-toastify';
 
 import { WagmiProvider, http, createConfig } from 'wagmi';
-import { pulsechain, pulsechainV4 } from 'wagmi/chains';
+import { sepolia } from 'wagmi/chains';
 import { walletConnect } from 'wagmi/connectors';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -14,10 +14,10 @@ import Footer from 'components/Footer';
 import Minter from 'components/Minter';
 import { TokenContextProvider } from 'context/token.context';
 
-import StayBullImg from 'assets/images/staybull.webp';
+import PulsarImg from 'assets/images/pulsar.webp';
 
 const config = createConfig({
-  chains: [pulsechain],
+  chains: [sepolia],
   connectors: [
     walletConnect({
       projectId: process.env.REACT_APP_WALLET_CONNECT_ID || '',
@@ -27,8 +27,7 @@ const config = createConfig({
     })
   ],
   transports: {
-    [pulsechain.id]: http('https://rpc.pulsechain.com'),
-    [pulsechainV4.id]: http('https://rpc.v4.testnet.pulsechain.com')
+    [sepolia.id]: http()
   }
 });
 
@@ -38,7 +37,7 @@ const AppContainer = () => {
   return (
     <>
       <Helmet>
-        <title>StayBULL Minter | GIFFORD Tech</title>
+        <title>Pulsar Minter | GIFFORD Tech</title>
         <meta name="description" content="Official minting website for StayBull token"></meta>
       </Helmet>
       <Router>
@@ -53,11 +52,7 @@ const AppContainer = () => {
                   className="flex flex-col items-center justify-center gap-y-4"
                 >
                   <div className="flex items-center justify-center gap-x-6">
-                    <img
-                      src={StayBullImg}
-                      alt="header icon"
-                      className="h-12 w-12 md:h-20 md:w-20"
-                    />
+                    <img src={PulsarImg} alt="header icon" className="h-12 w-12 md:h-20 md:w-20" />
                   </div>
                 </a>
                 <Minter />

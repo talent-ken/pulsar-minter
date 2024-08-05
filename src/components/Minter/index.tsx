@@ -9,38 +9,39 @@ import ConnectWallet from 'components/ConnectWallet';
 import TokenInput, { FALLBACK_ADDRESS } from 'components/TokenInput';
 import PriceDisplay from 'components/PriceDisplay';
 
-import { lusdAbi, stayBullAbi } from 'constants/abi';
+import { titanxAbi, pulsarAbi } from 'constants/abi';
 import { TokenTypes } from 'constants/constants';
 
-import LusdImg from 'assets/images/lusd.webp';
-import StayBullImg from 'assets/images/staybull.webp';
-import Pls from 'assets/images/pls.webp';
-import { showNotification } from 'libs/libs';
+import TitanXImg from 'assets/images/titanx.webp';
+import PulsarImg from 'assets/images/pulsar.webp';
+import Ethereum from 'assets/images/ethereum.webp';
+import { createNonce, showNotification } from 'libs/libs';
 
 const Minter = () => {
   const { address } = useAccount();
-  const { plsAmountInteger, lusdAmount, lusdBalance, lusdPLSPrice } = useTokenContext();
+  const { wEthAmountInteger, titanXAmount, titanXBalance, titanXWEthPrice, priceDenominator } =
+    useTokenContext();
   const { data: hash, writeContract, status, error } = useWriteContract();
 
   const [isMintable, setIsMintable] = useState(false);
 
-  const { data: nopeAllowance, refetch: refetchNope } = useReadContract({
-    address: process.env.REACT_APP_LUSD_CONTRACT_ADDRESS as `0x${string}`,
-    abi: lusdAbi || [],
+  const { data: titanXAllowance, refetch: refetchTitanXAllowance } = useReadContract({
+    address: process.env.REACT_APP_TITANX_CONTRACT_ADDRESS as `0x${string}`,
+    abi: titanxAbi || [],
     functionName: 'allowance',
     args: [
       address || FALLBACK_ADDRESS,
-      process.env.REACT_APP_STAYBULL_CONTRACT_ADDRESS as `0x${string}`
+      process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS as `0x${string}`
     ]
   });
 
   useEffect(() => {
     const interval = setInterval(() => {
-      refetchNope();
+      refetchTitanXAllowance();
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [refetchNope]);
+  }, [refetchTitanXAllowance]);
 
   const { isLoading } = useWaitForTransactionReceipt({ hash });
 
@@ -57,40 +58,84 @@ const Minter = () => {
   }, [isLoading, status]);
 
   const needAllowance = useMemo(() => {
-    const nopeAllowanceBigInt: BigInt = (nopeAllowance as BigInt) || 0n;
-    return parseInt(lusdAmount?.toString()) > parseInt(nopeAllowanceBigInt?.toString());
-  }, [nopeAllowance, lusdAmount]);
+    const titanXAllowanceBigInt: BigInt = (titanXAllowance as BigInt) || 0n;
+    return parseInt(titanXAmount?.toString()) > parseInt(titanXAllowanceBigInt?.toString());
+  }, [titanXAllowance, titanXAmount]);
 
   useEffect(() => {
-    setIsMintable(!needAllowance && lusdAmount !== 0n);
-  }, [lusdAmount, needAllowance]);
+    setIsMintable(!needAllowance && titanXAmount !== 0n);
+  }, [titanXAmount, needAllowance]);
 
   const handleApprove = useCallback(async () => {
-    if (lusdAmount > lusdBalance) {
+    if (titanXAmount > titanXBalance) {
       showNotification('Insufficient LUSD balance', 'error');
       return;
     }
 
     writeContract({
-      address: process.env.REACT_APP_LUSD_CONTRACT_ADDRESS as `0x${string}`,
-      abi: lusdAbi || [],
+      address: process.env.REACT_APP_TITANX_CONTRACT_ADDRESS as `0x${string}`,
+      abi: titanxAbi || [],
       functionName: 'approve',
       args: [
-        process.env.REACT_APP_STAYBULL_CONTRACT_ADDRESS as `0x${string}`,
-        BigInt(lusdAmount.toString())
+        process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS as `0x${string}`,
+        BigInt(titanXAmount.toString())
       ]
     });
-  }, [lusdAmount, lusdBalance, writeContract]);
+  }, [titanXAmount, titanXBalance, writeContract]);
+
+  const getSignature = async (priceDenominator: string, nonce: number) => {
+    const api = 'https://pulsar-sig-manager.vercel.app/api';
+    const res = await fetch(api, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: {
+          priceDenominator,
+          nonce
+        }
+      })
+    });
+
+    const payload = await res.json();
+
+    return payload.payload;
+  };
 
   const handleMint = useCallback(async () => {
-    writeContract({
-      address: process.env.REACT_APP_STAYBULL_CONTRACT_ADDRESS as `0x${string}`,
-      abi: stayBullAbi || [],
-      functionName: 'mint',
-      args: [lusdAmount],
-      value: BigInt(parseInt(lusdAmount.toString()) * parseFloat(lusdPLSPrice) * 1.01)
+    const nonce = createNonce();
+    const deadline =
+      Math.floor(new Date().getTime() / 1000) +
+      parseInt(process.env.REACT_APP_DEADLINE_THRESHOLD as string);
+
+    if (!priceDenominator) {
+      showNotification('Unable to fetch price at the moment. Please try again!', 'error');
+      return;
+    }
+
+    const signature = await getSignature(priceDenominator, nonce);
+
+    console.log({
+      deadline,
+      priceDenominator,
+      nonce,
+      signature,
+      price: Math.ceil(parseInt(titanXAmount.toString()) * parseFloat(titanXWEthPrice) * 1.01)
     });
-  }, [lusdAmount, lusdPLSPrice, writeContract]);
+
+    await writeContract({
+      address: process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS as `0x${string}`,
+      abi: pulsarAbi || [],
+      functionName: 'mint',
+      args: [titanXAmount, priceDenominator, nonce, deadline, signature],
+      value: BigInt(
+        Math.ceil(parseInt(titanXAmount.toString()) * parseFloat(titanXWEthPrice) * 1.01)
+      )
+    });
+  }, [priceDenominator, titanXAmount, titanXWEthPrice, writeContract]);
+
+  console.log({ error });
 
   const handleButtonClick = useCallback(() => {
     if (status === 'pending' || isLoading) return;
@@ -104,43 +149,45 @@ const Minter = () => {
     }
   }, [handleApprove, handleMint, isLoading, isMintable, needAllowance, status]);
 
+  console.log({ wEthAmountInteger });
+
   return (
     <div className="flex w-full max-w-7xl items-start justify-center">
-      <div className="flex w-full flex-col gap-y-4 rounded-xl border-2 border-secondary bg-gray-700/20 px-4 py-6 shadow-2xl md:w-130">
+      <div className="flex w-full flex-col gap-y-4 rounded-xl border-2 border-secondary bg-gray-700/50 px-4 py-6 shadow-2xl backdrop-blur-xl md:w-130">
         <TokenInput
-          tokenType={TokenTypes.LUSD}
+          tokenType={TokenTypes.TITANX}
           classNames="rounded-md border-2 border-theme shadow-lg"
-          tokenImage={LusdImg}
-          abi={lusdAbi}
-          api={`https://api.dexscreener.com/latest/dex/pairs/pulsechain/${process.env.REACT_APP_LUSD_PAIR_ADDRESS}`}
-          label="Send LUSD"
-          contractAddress={process.env.REACT_APP_LUSD_CONTRACT_ADDRESS as `0x${string}`}
-          tokenImageUrl={process.env.REACT_APP_SITE_URL + '/lusd.webp'}
+          tokenImage={TitanXImg}
+          abi={titanxAbi}
+          api={`https://api.dexscreener.com/latest/dex/pairs/ethereum/${process.env.REACT_APP_TITANX_PAIR_ADDRESS}`}
+          label="Send TITANX"
+          contractAddress={process.env.REACT_APP_TITANX_CONTRACT_ADDRESS as `0x${string}`}
+          tokenImageUrl={process.env.REACT_APP_SITE_URL + '/titanx.webp'}
         />
         <TokenInput
-          tokenType={TokenTypes.STAY_BULL}
+          tokenType={TokenTypes.PULSAR}
           classNames="rounded-md border-2 border-secondary shadow-lg"
-          tokenImage={StayBullImg}
-          abi={stayBullAbi}
-          api={`https://api.dexscreener.com/latest/dex/pairs/pulsechain/${process.env.REACT_APP_STAYBULL_PAIR_ADDRESS}`}
-          label="Mint StayBULL"
-          contractAddress={process.env.REACT_APP_STAYBULL_CONTRACT_ADDRESS as `0x${string}`}
-          tokenImageUrl={process.env.REACT_APP_SITE_URL + '/staybull.webp'}
+          tokenImage={PulsarImg}
+          abi={pulsarAbi}
+          api={`https://api.dexscreener.com/latest/dex/pairs/ethereum/${process.env.REACT_APP_PULSAR_PAIR_ADDRESS}`}
+          label="Mint PULSAR"
+          contractAddress={process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS as `0x${string}`}
+          tokenImageUrl={process.env.REACT_APP_SITE_URL + '/pulsar.webp'}
         />
-        <div className="flex w-full flex-col gap-y-2 rounded-md border-2 border-gray-400 bg-gray-900/40 p-2 backdrop-blur-lg">
-          <div className="flex justify-between border-b border-gray-600 py-2 font-bold text-gray-400">
+        <div className="flex w-full flex-col gap-y-2 rounded-md border-2 border-gray-600 bg-gray-900/40 p-2 backdrop-blur-lg">
+          <div className="flex justify-between border-b border-gray-600 py-2 font-bold text-gray-300">
             <span>Protocol Fee:</span>
             <div className="item-center flex gap-x-2">
-              <img src={Pls} alt="PLS token" className="h-6 w-6" />
+              <img src={Ethereum} alt="PLS token" className="h-6 w-6" />
               <span className="pt-0.25">
-                {Number(plsAmountInteger.toFixed(1)).toLocaleString('en')} PLS
+                {Number(wEthAmountInteger.toFixed(3)).toLocaleString('en')} ETH
               </span>
             </div>
           </div>
           <div className="flex flex-col gap-y-1">
             <PriceDisplay
-              title="PLS"
-              api={`https://api.dexscreener.com/latest/dex/pairs/pulsechain/${process.env.REACT_APP_WPLS_PAIR_ADDRESS}`}
+              title="ETH"
+              api={`https://api.dexscreener.com/latest/dex/pairs/ethereum/${process.env.REACT_APP_WETH_PAIR_ADDRESS}`}
             />
           </div>
         </div>
@@ -153,9 +200,9 @@ const Minter = () => {
             {status === 'pending' || isLoading ? (
               <Setting2 size={24} variant="Outline" className="animate-spin" />
             ) : needAllowance ? (
-              'Approve LUSD'
+              'Approve TITANX'
             ) : isMintable ? (
-              'Mint StayBULL'
+              'Mint PULSAR'
             ) : (
               'Enter Amount'
             )}
