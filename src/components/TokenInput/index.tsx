@@ -71,7 +71,7 @@ const TokenInput = (props: ITokenInput) => {
 
   useEffect(() => {
     if (tokenType === TokenTypes.TITANX) {
-      setTitanXBalance(balance as BigInt);
+      setTitanXBalance(balance as bigint);
     }
   }, [balance, setTitanXBalance, tokenType]);
 

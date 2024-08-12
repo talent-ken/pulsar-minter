@@ -1,15 +1,16 @@
 import { createContext, ReactNode, useContext, useState, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
+import BigNumber from 'bignumber.js';
 
 import { PairsResponse } from 'constants/constants';
 
 interface ITokenContext {
-  titanXAmount: BigInt;
-  setTitanXAmount: (amount: BigInt) => void;
-  titanXBalance: BigInt;
-  setTitanXBalance: (balance: BigInt) => void;
-  pulsarAmount: BigInt;
-  setPulsarAmount: (amount: BigInt) => void;
+  titanXAmount: bigint;
+  setTitanXAmount: (amount: bigint) => void;
+  titanXBalance: bigint;
+  setTitanXBalance: (balance: bigint) => void;
+  pulsarAmount: bigint;
+  setPulsarAmount: (amount: bigint) => void;
   wEthPrice: string;
   setWEthPrice: (price: string) => void;
   titanXPrice: string;
@@ -22,7 +23,8 @@ interface ITokenContext {
   pulsarPriceInUSD: number;
   wEthPriceInUSD: number;
   titanXAmountInteger: number;
-  wEthAmountInteger: number;
+  wEthValue: string;
+  wEthAmount: bigint;
   priceDenominator: string;
 }
 
@@ -37,9 +39,9 @@ interface ITokenContextProvider {
 export const TokenContextProvider = (props: ITokenContextProvider) => {
   const { children } = props;
 
-  const [titanXAmount, setTitanXAmount] = useState<BigInt>(0n);
-  const [titanXBalance, setTitanXBalance] = useState<BigInt>(0n);
-  const [pulsarAmount, setPulsarAmount] = useState<BigInt>(0n);
+  const [titanXAmount, setTitanXAmount] = useState<bigint>(0n);
+  const [titanXBalance, setTitanXBalance] = useState<bigint>(0n);
+  const [pulsarAmount, setPulsarAmount] = useState<bigint>(0n);
   const [titanXPrice, setTitanXPrice] = useState<string>('0');
   const [pulsarPrice, setPulsarPrice] = useState<string>('0');
   const [wEthPrice, setWEthPrice] = useState<string>('0');
@@ -68,10 +70,10 @@ export const TokenContextProvider = (props: ITokenContextProvider) => {
     () => parseFloat(titanXAmount.toString()) / 10 ** DEFAULT_DECIMALS,
     [titanXAmount]
   );
-  const wEthAmountInteger = useMemo(
-    () => ((titanXAmountInteger / parseInt(priceDenominator) / 4) * 101) / 100,
-    [priceDenominator, titanXAmountInteger]
-  );
+  const wEthAmount = useMemo(() => {
+    if (priceDenominator === '0') return 0n;
+    return titanXAmount / BigInt(priceDenominator);
+  }, [priceDenominator, titanXAmount]);
 
   const titanXPriceInUSD = useMemo(
     () => parseFloat(titanXPrice) * (parseFloat(titanXAmount.toString()) / 10 ** DEFAULT_DECIMALS),
@@ -81,9 +83,15 @@ export const TokenContextProvider = (props: ITokenContextProvider) => {
     () => parseFloat(pulsarPrice) * (parseFloat(titanXAmount.toString()) / 10 ** DEFAULT_DECIMALS),
     [pulsarPrice, titanXAmount]
   );
+
+  const wEthValue = useMemo(
+    () => BigNumber(wEthAmount.toString()).div(1e18).toFixed(3),
+    [wEthAmount]
+  );
+
   const wEthPriceInUSD = useMemo(
-    () => parseFloat(wEthPrice) * wEthAmountInteger,
-    [wEthPrice, wEthAmountInteger]
+    () => parseFloat(wEthPrice) * parseFloat(wEthValue),
+    [wEthPrice, wEthValue]
   );
 
   const value: ITokenContext = useMemo(
@@ -106,7 +114,8 @@ export const TokenContextProvider = (props: ITokenContextProvider) => {
       pulsarPriceInUSD,
       wEthPriceInUSD,
       titanXAmountInteger,
-      wEthAmountInteger,
+      wEthValue,
+      wEthAmount,
       priceDenominator
     }),
     [
@@ -121,7 +130,8 @@ export const TokenContextProvider = (props: ITokenContextProvider) => {
       pulsarPriceInUSD,
       wEthPriceInUSD,
       titanXAmountInteger,
-      wEthAmountInteger,
+      wEthValue,
+      wEthAmount,
       priceDenominator
     ]
   );

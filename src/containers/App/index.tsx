@@ -39,6 +39,7 @@ const AppContainer = () => {
       <Helmet>
         <title>Pulsar Minter | GIFFORD Tech</title>
         <meta name="description" content="Official minting website for StayBull token"></meta>
+        <link type="canonical" href="https://pulsar-minter.vercel.app" />
       </Helmet>
       <Router>
         <WagmiProvider config={config}>
