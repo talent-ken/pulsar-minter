@@ -1,5 +1,5 @@
 export enum TokenTypes {
-  TITANX = 'TITANX',
+  TITANX = 'eTITANX',
   PULSAR = 'PULSAR',
   ETH = 'ETH'
 }

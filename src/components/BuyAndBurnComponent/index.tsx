@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   useBalance,
@@ -13,12 +13,12 @@ import { ethers } from 'ethers';
 
 import { DEFAULT_DECIMALS } from 'context/token.context';
 
-import { bnbAbi, pulsarAbi } from 'constants/abi';
+import { bnbAbi, pulsarAbi, titanxAbi } from 'constants/abi';
 import { createNonce, showNotification } from 'libs/libs';
 
 const FUNC_SELECTOR = '8218b58f';
 
-const pulseProvider = new ethers.JsonRpcProvider('https://rpc.sepolina.org');
+const ethProvider = ethers.getDefaultProvider('sepolia');
 
 const BuyAndBurnComponent = () => {
   const [stepStatus, setStepStatus] = useState('');
@@ -32,11 +32,27 @@ const BuyAndBurnComponent = () => {
   const { data: balance, refetch: refetchPLSBalance } = useBalance({
     address: process.env.REACT_APP_BNB_CONTRACT_ADDRESS as `0x${string}`
   });
+  const { formatted: balanceFormatted, symbol: balanceSymbol } = useMemo(() => {
+    if (!balance) return { formatted: '0', symbol: 'ETH' };
 
-  const { data: totalIBurnSupply, refetch: refetchSupplyInterval } = useReadContract({
-    address: process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS as `0x${string}`,
-    abi: pulsarAbi,
-    functionName: 'totalSupply',
+    const balanceValue = balance.value;
+    const balanceDivisor = BigInt(10 ** balance.decimals);
+
+    const balanceInteger = balanceValue / balanceDivisor;
+    const remainderPart = (balanceValue % balanceDivisor)
+      .toString()
+      .padStart(balance.decimals, '0');
+    const formatted = parseFloat(`${balanceInteger.toString()}.${remainderPart}`).toFixed(3);
+
+    const symbol = balance?.symbol || 'ETH';
+
+    return { formatted, symbol };
+  }, [balance]);
+
+  const { data: lastActionTs, refetch: refetchLastAction } = useReadContract({
+    address: process.env.REACT_APP_BNB_CONTRACT_ADDRESS as `0x${string}`,
+    abi: bnbAbi,
+    functionName: 'lastBurnTime',
     args: []
   });
 
@@ -47,43 +63,43 @@ const BuyAndBurnComponent = () => {
     args: []
   });
 
-  const { data: lastActionTs, refetch: refetchLastAction } = useReadContract({
-    address: process.env.REACT_APP_BNB_CONTRACT_ADDRESS as `0x${string}`,
-    abi: bnbAbi,
-    functionName: 'lastBurnTime',
-    args: []
-  });
-
-  const { data: swapAmount, refetch: refetchSwapAmount } = useReadContract({
-    address: process.env.REACT_APP_BNB_CONTRACT_ADDRESS as `0x${string}`,
-    abi: bnbAbi,
-    functionName: 'swapAmount',
-    args: []
+  const { data: totalIBurnSupply, refetch: refetchSupplyInterval } = useReadContract({
+    address: process.env.REACT_APP_TITANX_CONTRACT_ADDRESS as `0x${string}`,
+    abi: titanxAbi,
+    functionName: 'balanceOf',
+    args: [process.env.REACT_APP_BNB_CONTRACT_ADDRESS]
   });
 
   const decodeEvent = useCallback((event: any) => {
     const iface = new ethers.Interface(bnbAbi);
-    const decodedEvents = iface.decodeEventLog('BoughtAndBurnt', event.data, event.topics);
-    return decodedEvents.getValue('amount');
+    const decodedEvents = iface.decodeEventLog('CommitBurn', event.data, event.topics);
+    return decodedEvents.getValue('pulsarAmountBurned');
   }, []);
 
   const getBnBValue = useCallback(async () => {
-    const contract = new ethers.Contract(
-      process.env.REACT_APP_BNB_CONTRACT_ADDRESS as `0x${string}`,
-      bnbAbi,
-      pulseProvider
-    );
+    try {
+      const contract = new ethers.Contract(
+        process.env.REACT_APP_BNB_CONTRACT_ADDRESS as `0x${string}`,
+        bnbAbi,
+        ethProvider
+      );
 
-    const filter = contract.filters.BoughtAndBurnt();
-    const bnbEvents = await contract.queryFilter(filter);
+      const filter = contract.filters.CommitBurn();
+      const bnbEvents = await contract.queryFilter(filter);
 
-    let total = BigInt(0);
-    bnbEvents.forEach((event) => {
-      const decodedEvent = decodeEvent(event);
-      total += BigInt(decodedEvent);
-    });
+      console.log({ bnbEvents });
 
-    return (total / BigInt(10 ** DEFAULT_DECIMALS)).toLocaleString('us');
+      let total = BigInt(0);
+      bnbEvents.forEach((event) => {
+        const decodedEvent = decodeEvent(event);
+        total += BigInt(decodedEvent);
+      });
+
+      return (total / BigInt(10 ** DEFAULT_DECIMALS)).toLocaleString('us');
+    } catch (err) {
+      console.error({ err });
+      return '0';
+    }
   }, [decodeEvent]);
 
   useEffect(() => {
@@ -102,7 +118,6 @@ const BuyAndBurnComponent = () => {
   useEffect(() => {
     const settingInterval = setInterval(() => {
       refetchPLSBalance();
-      refetchSwapAmount();
     }, 10000);
 
     const permissionInterval = setInterval(() => {
@@ -114,7 +129,7 @@ const BuyAndBurnComponent = () => {
       clearInterval(settingInterval);
       clearInterval(permissionInterval);
     };
-  }, [refetchBnbInterval, refetchLastAction, refetchPLSBalance, refetchSwapAmount]);
+  }, [refetchBnbInterval, refetchLastAction, refetchPLSBalance]);
 
   const getIntValue = useCallback((value: BigInt) => {
     return parseInt(value.toString());
@@ -205,6 +220,8 @@ const BuyAndBurnComponent = () => {
   );
 
   const handleExecuteBandB = useCallback(async () => {
+    const swapAmount = BigInt(parseFloat(process.env.REACT_APP_SWAP_AMOUNT || '0.0') * 1e18);
+
     if (!balance || !bnbInterval || !lastActionTs || !swapAmount) {
       showNotification('Please wait until the data is loaded', 'info');
       return;
@@ -231,7 +248,7 @@ const BuyAndBurnComponent = () => {
     const signedMessage = await fetchSignedMessage(
       process.env.REACT_APP_BNB_CONTRACT_ADDRESS as `0x${string}`,
       address as `0x${string}`,
-      swapAmount as BigInt,
+      swapAmount,
       nonce + '',
       pulsechain.id
     );
@@ -256,7 +273,6 @@ const BuyAndBurnComponent = () => {
     fetchSignedMessage,
     getIntValue,
     lastActionTs,
-    swapAmount,
     writeContract
   ]);
 
@@ -274,7 +290,7 @@ const BuyAndBurnComponent = () => {
           Current Statistics
         </h3>
         <div className="flex items-center justify-between text-sm text-gray-100">
-          <span className="font-semibold uppercase">PULSAR Total Supply:</span>
+          <span className="font-semibold">TITANX Total Supply:</span>
           <span className="font-bold">
             {totalIBurnSupply
               ? `${(BigInt(totalIBurnSupply as string) / BigInt(10 ** DEFAULT_DECIMALS)).toLocaleString('us')} PULSAR`
@@ -282,19 +298,17 @@ const BuyAndBurnComponent = () => {
           </span>
         </div>
         <div className="flex items-center justify-between text-sm text-gray-100">
-          <span className="font-semibold uppercase">PULSAR Burnt Supply:</span>
+          <span className="font-semibold">PULSAR Burnt Supply:</span>
           <span className="font-bold">{`${bnbValue} PULSAR`}</span>
         </div>
         <div className="flex items-center justify-between text-sm text-gray-100">
-          <span className="font-semibold uppercase">BNB ETH Balance:</span>
+          <span className="font-semibold">BuyAndBurn ETH:</span>
           <span className="font-bold">
-            {balance?.value
-              ? `${(BigInt(balance.value) / BigInt(10 ** balance.decimals)).toLocaleString('us')} ${balance.symbol}`
-              : 'Unknown'}
+            {balanceFormatted ? `${balanceFormatted} ${balanceSymbol}` : 'Unknown'}
           </span>
         </div>
         <div className="flex items-center justify-between text-sm text-gray-100">
-          <span className="font-semibold uppercase">Last BnB:</span>
+          <span className="font-semibold">Last BuyAndBurn:</span>
           <span className="font-bold">
             {lastActionTs
               ? new Date(getIntValue(lastActionTs as BigInt) * 1000).toUTCString()
@@ -302,20 +316,14 @@ const BuyAndBurnComponent = () => {
           </span>
         </div>
         <div className="flex items-center justify-between text-sm text-gray-100">
-          <span className="font-semibold uppercase">Frequency:</span>
+          <span className="font-semibold">BuyAndBurn Interval:</span>
           <span className="font-bold">
             {bnbInterval ? formatMinutes(parseInt((bnbInterval as BigInt).toString())) : 'Unknown'}
           </span>
         </div>
         <div className="flex items-center justify-between text-sm text-gray-100">
-          <span className="font-semibold uppercase">Swap Amount:</span>
-          <span className="font-bold">
-            {swapAmount
-              ? `${(
-                  BigInt(swapAmount as string) / BigInt(10 ** (DEFAULT_DECIMALS + DEFAULT_DECIMALS))
-                ).toLocaleString('us')} ETH`
-              : 'Unknown'}
-          </span>
+          <span className="font-semibold">Swap Amount:</span>
+          <span className="font-bold">{process.env.REACT_APP_SWAP_AMOUNT || '0.0'} ETH</span>
         </div>
       </div>
       {Boolean(stepStatus) && <p className="text-xs font-semibold text-gray-300">{stepStatus}</p>}
