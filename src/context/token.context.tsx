@@ -48,8 +48,6 @@ export const TokenContextProvider = (props: ITokenContextProvider) => {
   const [titanXWEthPrice, setTitanXWEthPrice] = useState<string>('0');
   const [priceDenominator, setPriceDenominator] = useState<string>('0');
 
-  console.log({ priceDenominator });
-
   const api =
     'https://api.dexscreener.com/latest/dex/pairs/ethereum/0xc45a81bc23a64ea556ab4cdf08a86b61cdceea8b';
 

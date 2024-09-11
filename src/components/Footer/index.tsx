@@ -1,9 +1,27 @@
+import { useCallback, MouseEvent } from 'react';
+
 import { ReactComponent as Telegram } from 'assets/svgs/telegram.svg';
 import { ReactComponent as Twitter } from 'assets/svgs/twitter-x.svg';
 
 import StayBullImg from 'assets/images/pulsar.webp';
 
 const Footer = () => {
+  const handleCopy = useCallback((e: MouseEvent, text?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const copyText = text || '';
+
+    navigator.clipboard
+      .writeText(copyText)
+      .then(() => {
+        console.log('Copied to clipboard: ', copyText);
+      })
+      .catch((err) => {
+        console.error('Failed to copy: ', err);
+      });
+  }, []);
+
   return (
     <footer data-testid="footer" className="flex w-full flex-col items-center gap-y-3 pb-4 pt-8">
       <a title="footer-icon" href="/">
@@ -32,25 +50,25 @@ const Footer = () => {
         </div>
         <a
           data-testid="footer-giff-contract"
-          href={`https://scan.mypinata.cloud/ipfs/bafybeih3olry3is4e4lzm7rus5l3h6zrphcal5a7ayfkhzm5oivjro2cp4/#/address/${process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS}`}
+          href={`https://sepolia.etherscan.io/address/${process.env.REACT_APP_TITANX_CONTRACT_ADDRESS}`}
           title="footer-pgiff-address"
           rel="noreferrer noopener"
           className="flex items-center rounded-full bg-gray-200/20 px-2 py-0.5 text-sm font-medium text-gray-100 underline-offset-2 hover:underline"
           target="_blank"
+          onClick={(e) => handleCopy(e, process.env.REACT_APP_TITANX_CONTRACT_ADDRESS)}
         >
-          LUSD Contract
-          <span className="hidden md:block">: {process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS}</span>
+          TITANX Contract
         </a>
         <a
           data-testid="footer-pgiff-contract"
-          href={`https://scan.mypinata.cloud/ipfs/bafybeih3olry3is4e4lzm7rus5l3h6zrphcal5a7ayfkhzm5oivjro2cp4/#/address/${process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS}`}
+          href={`https://sepolia.etherscan.io/address/${process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS}`}
           title="footer-bnb-contract"
           rel="noreferrer noopener"
           className="flex items-center rounded-full bg-gray-200/20 px-2 py-0.5 text-sm font-medium text-gray-100 underline-offset-2 hover:underline"
           target="_blank"
+          onClick={(e) => handleCopy(e, process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS)}
         >
-          StayBULL Contract
-          <span className="hidden md:block">: {process.env.REACT_APP_PULSAR_CONTRACT_ADDRESS}</span>
+          PULSAR Contract
         </a>
         <div
           data-testid="footer-copyright"

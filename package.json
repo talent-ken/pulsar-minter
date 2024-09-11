@@ -1,5 +1,5 @@
 {
-  "name": "nobull-minter",
+  "name": "pulsar-minter",
   "version": "0.1.0",
   "private": true,
   "dependencies": {

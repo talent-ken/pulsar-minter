@@ -69,7 +69,7 @@ const Minter = () => {
 
   const handleApprove = useCallback(async () => {
     if (titanXAmount > titanXBalance) {
-      showNotification('Insufficient LUSD balance', 'error');
+      showNotification('Insufficient TITANX balance', 'error');
       return;
     }
 
